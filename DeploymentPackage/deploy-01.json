@@ -1,0 +1,536 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "azureUserName": {
+      "type": "string"
+    },
+    "azurePassword": {
+      "type": "securestring"
+    },
+    "ODLID": {
+      "type": "string"
+    },
+    "DeploymentID": {
+      "type": "string"
+    },
+    "adminUsername": {
+      "type": "string"
+    },
+    "adminPassword": {
+      "type": "securestring"
+    },
+    "trainerUserName": {
+      "type": "string"
+    },
+    "trainerUserPassword": {
+      "type": "string"
+    }
+  },
+  "variables": {
+    "scripturl": "https://experienceazure.blob.core.windows.net/templates/cloudlabs-common/stage1/psscript-01.ps1",
+    "location": "[resourceGroup().location]",
+    "LabVMName": "[concat('labvm-', parameters('DeploymentID'))]",
+    "vnetName": "[concat('vnet-', parameters('DeploymentID'))]",
+    "subnetName": "default",
+    "nsgName": "[concat('nsg-', parameters('DeploymentID'))]",
+    "nicName": "[concat('nic-', parameters('DeploymentID'))]",
+    "pipName": "[concat('pip-', parameters('DeploymentID'))]",
+    "dnsLabel": "[toLower(concat('cl', uniqueString(resourceGroup().id, parameters('DeploymentID'))))]",
+    "cosmosAccountName": "[toLower(concat('cosmos', uniqueString(resourceGroup().id, parameters('DeploymentID'))))]",
+    "databaseName": "cosmosragdb",
+    "ragContainerName": "ragchunks",
+    "vectorContainerName": "vectorsearch",
+    "flatContainerName": "vectorflat",
+    "quantizedContainerName": "vectorquantized",
+    "diskAnnContainerName": "vectordiskann",
+    "projectRootPath": "C:\\LabFiles\\CosmosDBAIWorkshop",
+    "embeddingDimensions": 1536,
+    "userdata": "[concat('<powershell>mkdir C:\\Packages; cd C:\\Packages; Invoke-WebRequest -Uri ', variables('scripturl'), ' -OutFile psscript-01.ps1; powershell -ExecutionPolicy Unrestricted -File C:\\Packages\\psscript-01.ps1 -AzureUserName ''', parameters('azureUserName'), ''' -AzurePassword ''', parameters('azurePassword'), ''' -AzureTenantID ''', subscription().tenantId, ''' -AzureSubscriptionID ''', subscription().subscriptionId, ''' -DeploymentID ''', parameters('DeploymentID'), ''' -vmAdminUsername ''', parameters('adminUsername'), ''' -vmAdminPassword ''', parameters('adminPassword'), ''' -trainerUserName ''', parameters('trainerUserName'), ''' -trainerUserPassword ''', parameters('trainerUserPassword'), '''</powershell>')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('nsgName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "Allow-RDP",
+            "properties": {
+              "priority": 1000,
+              "protocol": "Tcp",
+              "access": "Allow",
+              "direction": "Inbound",
+              "sourceAddressPrefix": "*",
+              "sourcePortRange": "*",
+              "destinationAddressPrefix": "*",
+              "destinationPortRange": "3389"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('vnetName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "10.10.0.0/16"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('subnetName')]",
+            "properties": {
+              "addressPrefix": "10.10.0.0/24",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+              }
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('pipName')]",
+      "location": "[variables('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static",
+        "dnsSettings": {
+          "domainNameLabel": "[variables('dnsLabel')]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('nicName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('pipName'))]"
+              },
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('subnetName'))]"
+              }
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('pipName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2023-03-01",
+      "name": "[variables('LabVMName')]",
+      "location": "[variables('location')]",
+      "plan": {
+        "name": "win2019",
+        "publisher": "spektra",
+        "product": "cloudlabs-windows-jumpvm"
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "Standard_B2s"
+        },
+        "osProfile": {
+          "computerName": "[variables('LabVMName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]",
+          "windowsConfiguration": {
+            "enableAutomaticUpdates": true,
+            "provisionVMAgent": true
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]",
+              "properties": {
+                "primary": true,
+                "deleteOption": "Delete"
+              }
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true
+          }
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "Spektra",
+            "offer": "cloudlabs-windows-jumpvm",
+            "sku": "win2019",
+            "version": "latest"
+          },
+          "osDisk": {
+            "createOption": "FromImage",
+            "managedDisk": {
+              "storageAccountType": "StandardSSD_LRS"
+            },
+            "deleteOption": "Delete"
+          }
+        },
+        "userData": "[base64(variables('userdata'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts",
+      "apiVersion": "2024-11-15",
+      "name": "[variables('cosmosAccountName')]",
+      "location": "[variables('location')]",
+      "kind": "GlobalDocumentDB",
+      "properties": {
+        "databaseAccountOfferType": "Standard",
+        "locations": [
+          {
+            "locationName": "[variables('location')]",
+            "failoverPriority": 0,
+            "isZoneRedundant": false
+          }
+        ],
+        "consistencyPolicy": {
+          "defaultConsistencyLevel": "Session"
+        },
+        "enableAutomaticFailover": false,
+        "enableMultipleWriteLocations": false,
+        "disableLocalAuth": false,
+        "disableKeyBasedMetadataWriteAccess": false,
+        "capabilities": [
+          {
+            "name": "EnableNoSQLVectorSearch"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",
+      "apiVersion": "2024-11-15",
+      "name": "[format('{0}/{1}', variables('cosmosAccountName'), variables('databaseName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosAccountName'))]"
+      ],
+      "properties": {
+        "resource": {
+          "id": "[variables('databaseName')]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2024-11-15",
+      "name": "[format('{0}/{1}/{2}', variables('cosmosAccountName'), variables('databaseName'), variables('ragContainerName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', variables('cosmosAccountName'), variables('databaseName'))]"
+      ],
+      "properties": {
+        "resource": {
+          "id": "[variables('ragContainerName')]",
+          "partitionKey": {
+            "paths": [
+              "/category"
+            ],
+            "kind": "Hash"
+          },
+          "indexingPolicy": {
+            "indexingMode": "consistent",
+            "automatic": true,
+            "includedPaths": [
+              {
+                "path": "/*"
+              }
+            ],
+            "excludedPaths": [
+              {
+                "path": "/_etag/?"
+              }
+            ]
+          }
+        },
+        "options": {
+          "throughput": 400
+        }
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2024-11-15",
+      "name": "[format('{0}/{1}/{2}', variables('cosmosAccountName'), variables('databaseName'), variables('vectorContainerName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', variables('cosmosAccountName'), variables('databaseName'))]"
+      ],
+      "properties": {
+        "resource": {
+          "id": "[variables('vectorContainerName')]",
+          "partitionKey": {
+            "paths": [
+              "/category"
+            ],
+            "kind": "Hash"
+          },
+          "vectorEmbeddingPolicy": {
+            "vectorEmbeddings": [
+              {
+                "path": "/vector",
+                "dataType": "float32",
+                "distanceFunction": "cosine",
+                "dimensions": "[variables('embeddingDimensions')]"
+              }
+            ]
+          },
+          "indexingPolicy": {
+            "indexingMode": "consistent",
+            "automatic": true,
+            "includedPaths": [
+              {
+                "path": "/*"
+              }
+            ],
+            "excludedPaths": [
+              {
+                "path": "/_etag/?"
+              }
+            ],
+            "vectorIndexes": [
+              {
+                "path": "/vector",
+                "type": "quantizedFlat"
+              }
+            ]
+          }
+        },
+        "options": {
+          "throughput": 1000
+        }
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2024-11-15",
+      "name": "[format('{0}/{1}/{2}', variables('cosmosAccountName'), variables('databaseName'), variables('flatContainerName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', variables('cosmosAccountName'), variables('databaseName'))]"
+      ],
+      "properties": {
+        "resource": {
+          "id": "[variables('flatContainerName')]",
+          "partitionKey": {
+            "paths": [
+              "/category"
+            ],
+            "kind": "Hash"
+          },
+          "vectorEmbeddingPolicy": {
+            "vectorEmbeddings": [
+              {
+                "path": "/vector",
+                "dataType": "float32",
+                "distanceFunction": "cosine",
+                "dimensions": 505
+              }
+            ]
+          },
+          "indexingPolicy": {
+            "indexingMode": "consistent",
+            "automatic": true,
+            "includedPaths": [
+              {
+                "path": "/*"
+              }
+            ],
+            "excludedPaths": [
+              {
+                "path": "/_etag/?"
+              }
+            ],
+            "vectorIndexes": [
+              {
+                "path": "/vector",
+                "type": "flat"
+              }
+            ]
+          }
+        },
+        "options": {
+          "throughput": 1000
+        }
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2024-11-15",
+      "name": "[format('{0}/{1}/{2}', variables('cosmosAccountName'), variables('databaseName'), variables('quantizedContainerName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', variables('cosmosAccountName'), variables('databaseName'))]"
+      ],
+      "properties": {
+        "resource": {
+          "id": "[variables('quantizedContainerName')]",
+          "partitionKey": {
+            "paths": [
+              "/category"
+            ],
+            "kind": "Hash"
+          },
+          "vectorEmbeddingPolicy": {
+            "vectorEmbeddings": [
+              {
+                "path": "/vector",
+                "dataType": "float32",
+                "distanceFunction": "cosine",
+                "dimensions": "[variables('embeddingDimensions')]"
+              }
+            ]
+          },
+          "indexingPolicy": {
+            "indexingMode": "consistent",
+            "automatic": true,
+            "includedPaths": [
+              {
+                "path": "/*"
+              }
+            ],
+            "excludedPaths": [
+              {
+                "path": "/_etag/?"
+              }
+            ],
+            "vectorIndexes": [
+              {
+                "path": "/vector",
+                "type": "quantizedFlat"
+              }
+            ]
+          }
+        },
+        "options": {
+          "throughput": 1000
+        }
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2024-11-15",
+      "name": "[format('{0}/{1}/{2}', variables('cosmosAccountName'), variables('databaseName'), variables('diskAnnContainerName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', variables('cosmosAccountName'), variables('databaseName'))]"
+      ],
+      "properties": {
+        "resource": {
+          "id": "[variables('diskAnnContainerName')]",
+          "partitionKey": {
+            "paths": [
+              "/category"
+            ],
+            "kind": "Hash"
+          },
+          "vectorEmbeddingPolicy": {
+            "vectorEmbeddings": [
+              {
+                "path": "/vector",
+                "dataType": "float32",
+                "distanceFunction": "cosine",
+                "dimensions": "[variables('embeddingDimensions')]"
+              }
+            ]
+          },
+          "indexingPolicy": {
+            "indexingMode": "consistent",
+            "automatic": true,
+            "includedPaths": [
+              {
+                "path": "/*"
+              }
+            ],
+            "excludedPaths": [
+              {
+                "path": "/_etag/?"
+              }
+            ],
+            "vectorIndexes": [
+              {
+                "path": "/vector",
+                "type": "diskANN"
+              }
+            ]
+          }
+        },
+        "options": {
+          "throughput": 1000
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "vmServerDnsName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', variables('pipName'))).dnsSettings.fqdn]"
+    },
+    "vmServerUsername": {
+      "type": "string",
+      "value": "[parameters('adminUsername')]"
+    },
+    "vmServerPassword": {
+      "type": "securestring",
+      "value": "[parameters('adminPassword')]"
+    },
+    "cosmosAccountName": {
+      "type": "string",
+      "value": "[variables('cosmosAccountName')]"
+    },
+    "databaseName": {
+      "type": "string",
+      "value": "[variables('databaseName')]"
+    },
+    "ragContainerName": {
+      "type": "string",
+      "value": "[variables('ragContainerName')]"
+    },
+    "vectorContainerName": {
+      "type": "string",
+      "value": "[variables('vectorContainerName')]"
+    },
+    "flatContainerName": {
+      "type": "string",
+      "value": "[variables('flatContainerName')]"
+    },
+    "quantizedContainerName": {
+      "type": "string",
+      "value": "[variables('quantizedContainerName')]"
+    },
+    "diskAnnContainerName": {
+      "type": "string",
+      "value": "[variables('diskAnnContainerName')]"
+    },
+    "projectRootPath": {
+      "type": "string",
+      "value": "[variables('projectRootPath')]"
+    }
+  }
+}

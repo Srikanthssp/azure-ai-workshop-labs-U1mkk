@@ -1,0 +1,12 @@
+{
+  "name": "Azure AI Workshop Labs",
+  "cloud": "azure",
+  "level": "Intermediate",
+  "deploymentDurationMinutes": 90,
+  "enableLabValidation": true,
+  "hasInlineQuestions": false,
+  "customPolicy": true,
+  "customRbacRole": true,
+  "cloudScope": null,
+  "policyPack": null
+}
