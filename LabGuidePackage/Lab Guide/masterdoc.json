@@ -1,0 +1,25 @@
+[
+  {
+    "Name": "Azure AI Workshop Labs",
+    "Language": "English",
+    "BaseURL": "https://raw.githubusercontent.com/<owner>/<repo>/main/LabGuidePackage/Lab%20Guide/",
+    "Files": [
+      {
+        "RawFilePath": "Lab%20Guide/GettingStarted-V2.md",
+        "Order": 1
+      },
+      {
+        "RawFilePath": "Lab%20Guide/Exercise-01.md",
+        "Order": 2
+      },
+      {
+        "RawFilePath": "Lab%20Guide/Exercise-02.md",
+        "Order": 3
+      },
+      {
+        "RawFilePath": "Lab%20Guide/Exercise-03.md",
+        "Order": 4
+      }
+    ]
+  }
+]

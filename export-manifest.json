@@ -1,0 +1,149 @@
+{
+  "packageId": "9c668f5b-7de9-44a1-998f-d81afd207a13",
+  "slug": "azure-ai-workshop-labs-U1mkk",
+  "title": "Azure AI Workshop Labs",
+  "version": 1,
+  "exportedAt": "2026-07-01T16:01:42.731Z",
+  "exportTarget": "github_new_repo",
+  "force": false,
+  "deliverableConfig": {
+    "arm": {
+      "stages": 1,
+      "enabled": true
+    },
+    "cse": {
+      "enabled": true
+    },
+    "rbac": {
+      "enabled": true
+    },
+    "policy": {
+      "enabled": true
+    },
+    "readme": {
+      "enabled": true
+    },
+    "labGuide": {
+      "enabled": true,
+      "exercises": 3
+    },
+    "solution": {
+      "enabled": false
+    },
+    "questions": {
+      "count": 0,
+      "enabled": false
+    },
+    "specSheet": {
+      "enabled": true
+    },
+    "validations": {
+      "count": 3,
+      "enabled": true
+    }
+  },
+  "artifacts": [
+    {
+      "path": "DeploymentPackage/deploy-01.json",
+      "kind": "arm",
+      "lintStatus": "passed"
+    },
+    {
+      "path": "DeploymentPackage/deploy-01.parameters.json",
+      "kind": "arm_params",
+      "lintStatus": "passed"
+    },
+    {
+      "path": "DeploymentPackage/psscript-01.ps1",
+      "kind": "psscript",
+      "lintStatus": "passed"
+    },
+    {
+      "path": "LabGuidePackage/Lab Guide/Lab Guide/Exercise-01.md",
+      "kind": "exercise_md",
+      "lintStatus": "passed"
+    },
+    {
+      "path": "LabGuidePackage/Lab Guide/Lab Guide/Exercise-02.md",
+      "kind": "exercise_md",
+      "lintStatus": "passed"
+    },
+    {
+      "path": "LabGuidePackage/Lab Guide/Lab Guide/Exercise-03.md",
+      "kind": "exercise_md",
+      "lintStatus": "passed"
+    },
+    {
+      "path": "LabGuidePackage/Lab Guide/Lab Guide/GettingStarted-V2.md",
+      "kind": "getting_started",
+      "lintStatus": "passed"
+    },
+    {
+      "path": "permissions/CustomARMPolicy/azure-policy.json",
+      "kind": "policy_json",
+      "lintStatus": "passed"
+    },
+    {
+      "path": "permissions/CustomRBAC/custom-rbac-role.json",
+      "kind": "rbac_json",
+      "lintStatus": "passed"
+    },
+    {
+      "path": "Spec.md",
+      "kind": "spec_md",
+      "lintStatus": "passed"
+    },
+    {
+      "path": "Validations/Cosmos DB Foundation.ps1",
+      "kind": "validation_ps1",
+      "lintStatus": "passed"
+    },
+    {
+      "path": "Validations/Index Comparison Resources.ps1",
+      "kind": "validation_ps1",
+      "lintStatus": "passed"
+    },
+    {
+      "path": "Validations/Semantic Search Vector Configuration.ps1",
+      "kind": "validation_ps1",
+      "lintStatus": "passed"
+    },
+    {
+      "path": "LabGuidePackage/Lab Guide/masterdoc.json",
+      "kind": "masterdoc",
+      "lintStatus": null
+    },
+    {
+      "path": "template-config.json",
+      "kind": "template_config",
+      "lintStatus": null
+    }
+  ],
+  "errors": [],
+  "coherence": [
+    {
+      "severity": "info",
+      "rule": "coherence-validation-step-unmatched",
+      "message": "Validation step \"Validation 2\" has no clearly-matching validation script under Validations/. Confirm a backing .ps1/.sh exists.",
+      "artifactPath": "LabGuidePackage/Lab Guide/Lab Guide/Exercise-02.md"
+    },
+    {
+      "severity": "info",
+      "rule": "coherence-validation-step-unmatched",
+      "message": "Validation step \"Validation 3\" has no clearly-matching validation script under Validations/. Confirm a backing .ps1/.sh exists.",
+      "artifactPath": "LabGuidePackage/Lab Guide/Lab Guide/Exercise-03.md"
+    },
+    {
+      "severity": "warning",
+      "rule": "coherence-validator-rg-mismatch",
+      "message": "Validators reference 2 different resource-group names (rg-cosmos-rag, rg-cosmosdb). They should all target the same lab resource group — reconcile them (prefer a CloudLabs inject placeholder over a hardcoded name).",
+      "artifactPath": "(package)"
+    }
+  ],
+  "runnability": {
+    "issues": [],
+    "blocking": 0,
+    "warning": 0,
+    "info": 0
+  }
+}
